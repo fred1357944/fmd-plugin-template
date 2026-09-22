@@ -1,236 +1,42 @@
-# FMD Plugin API
+# FMD plugin API snapshot
 
-Host API for **humans and AI coding agents**. Copy-paste examples below work against the QJSEngine runtime (TypeScript authors compile to `main.js`).
+The [FMD app repository](https://github.com/fred1357944/FMD/blob/master/docs/PLUGIN_API.md) is the current source of truth. This snapshot describes the runtime that this template targets. FMD plugins are `manifest.json` plus a single bundled CommonJS `main.js`, loaded by Qt QJSEngine. They are not Obsidian plugins and have no Node or network API.
 
-Global injected into every plugin: **`fmd`** (alias **`api`**).
+## Lifecycle and permissions
 
-App + platform design: https://github.com/fred1357944/FMD  
-Types: [`fmd.d.ts`](../fmd.d.ts)  
-Agent guide: [`AGENTS.md`](../AGENTS.md)
+FMD constructs the exported class, calls `onload(fmd)` synchronously, and calls `onunload()` on disable. The host does not await an async `onload`. Request the smallest needed permission list in `manifest.json`:
 
-This file is a snapshot of the host API. Prefer the copy in the FMD app repo if they differ.
-
----
-
-## Quick mental model
-
-```
-Your plugin folder
-  manifest.json     # id, permissions, minAppVersion
-  main.js           # required entry (bundled from src/main.ts)
-  styles.css        # optional
-
-Host loads folder → creates QJSEngine → injects `fmd` → calls plugin.onload(fmd)
-```
-
-Install paths:
-- User: `~/.config/fmd/plugins/<id>/`
-- Workspace: `<Workspace>/.fmd/plugins/<id>/`
-- Builtin: app resources (`:/plugins/...`)
-
----
-
-## Lifecycle
-
-```js
-// main.js (CommonJS-style; host wraps module.exports)
-class MyPlugin {
-  onload(api) {
-    // register commands, listeners, UI
-  }
-  onunload() {
-    // cleanup; host also destroys the engine
-  }
-}
-module.exports = MyPlugin;
-```
-
-TypeScript (sample template):
-
-```ts
-import { Plugin } from "./fmd"; // or from 'fmd.d.ts'
-
-export default class SamplePlugin extends Plugin {
-  async onload() {
-    this.addCommand({
-      id: "hello",
-      name: "Say hello",
-      callback: () => this.api.ui.notice("Hello from FMD"),
-    });
-  }
-
-  onunload() {}
-}
-```
-
----
-
-## Permissions
-
-Declare in `manifest.json` → `permissions: string[]`. Missing permission → API call is a no-op (and may log).
-
-| Permission | Allows |
+| Permission | API |
 |---|---|
-| `editor.read` | `fmd.editor.getValue`, selection getters |
-| `editor.write` | `setValue`, `replaceSelection` |
-| `ui.statusbar` | `fmd.ui.setStatusBarItem` |
-| `commands.register` | `fmd.commands.register` |
-| `frontmatter.read` / `frontmatter.write` | frontmatter API |
-| `vault.read` / `vault.write` | workspace-scoped file IO |
+| `editor.read` | `editor.getValue()`, `getSelection()`, `workspace.getActiveFile()` |
+| `editor.write` | `editor.setValue(text)`, `replaceSelection(text)` |
+| `ui.statusbar` | `ui.setStatusBarItem({id,text})` |
+| `commands.register` | `commands.register({id,name,callback})` |
+| `frontmatter.read` / `frontmatter.write` | `frontmatter.get()` / `set(key,value)` / `update(patch)` |
+| `vault.read` / `vault.write` | `vault.read(path)`, `list()`, `write(path,text)` |
 
----
+`workspace.on(event, callback)` / `off(event, callback)` support `file-open`, `file-save`, `file-change`, `frontmatter-change`, and `view-change`. `settings.get(key, defaultValue)` / `set(key,value)` store values under the plugin ID. `ui.notice(text)` writes the FMD status area, not a popup.
 
-## `fmd.workspace`
+`frontmatter.get()` reads the active note only. `vault.list()` returns every Markdown path relative to the current workspace and takes no folder argument. `vault.write()` returns a boolean. Vault paths must remain inside the current workspace.
 
-### `getActiveFile()`
-Returns `{ path, content, frontmatter? }` or empty/null-ish if none.
+The current host always loads `main.js`; it does not apply `styles.css` or plugin command shortcuts. `minAppVersion` is metadata for authors and is not enforced by the host yet. Check the app API before relying on newer features.
 
-```js
-const file = fmd.workspace.getActiveFile();
-if (file && file.path) {
-  console.log("Active:", file.path);
-}
-```
-
-### Events — `on` / `off`
+## Minimal example
 
 ```js
-function onChange(payload) {
-  // payload.path when available
-  fmd.ui.setStatusBarItem({ id: "demo", text: "changed: " + (payload.path || "") });
-}
-fmd.workspace.on("file-change", onChange);
-// later: fmd.workspace.off("file-change", onChange);
-```
-
-Events: `file-open`, `file-save`, `file-change`, `frontmatter-change`, `view-change`.
-
----
-
-## `fmd.editor`
-
-```js
-// requires editor.read
-const text = fmd.editor.getValue();
-
-// requires editor.write
-fmd.editor.setValue(text + "\n\n<!-- stamped by plugin -->\n");
-fmd.editor.replaceSelection("INSERT");
-```
-
----
-
-## `fmd.ui`
-
-```js
-fmd.ui.setStatusBarItem({ id: "my-plugin-status", text: "42 words" });
-fmd.ui.notice("Saved draft");
-// addSidebarView — planned
-```
-
----
-
-## `fmd.commands`
-
-```js
-fmd.commands.register({
-  id: "my-plugin-insert-date",
-  name: "Insert today's date",
-  shortcut: "Ctrl+Shift+D", // optional; host-dependent
-  callback: function () {
-    const d = new Date().toISOString().slice(0, 10);
-    fmd.editor.replaceSelection(d);
-  }
-});
-```
-
-Requires `commands.register`. Prefer stable command `id`s — do not rename after release.
-
----
-
-## `fmd.settings`
-
-Scoped per plugin id (in-memory in skeleton; persisted JSON later).
-
-```js
-const enabled = fmd.settings.get("enabled", true);
-fmd.settings.set("enabled", false);
-```
-
----
-
-## `fmd.frontmatter` / `fmd.vault`
-
-Stubs in the v0 skeleton — contract reserved:
-
-```js
-// frontmatter
-fmd.frontmatter.get();
-fmd.frontmatter.set("status", "draft");
-fmd.frontmatter.update({ status: "published", date: "2026-09-16" });
-
-// vault — paths relative to workspace only
-fmd.vault.read("notes/hello.md");
-fmd.vault.write("notes/hello.md", "# Hello\n");
-fmd.vault.list("notes");
-```
-
----
-
-## Minimal complete plugin
-
-`manifest.json`:
-
-```json
-{
-  "id": "com.example.hello",
-  "name": "Hello",
-  "version": "0.1.0",
-  "minAppVersion": "0.1.0",
-  "description": "Notices on load",
-  "author": "You",
-  "main": "main.js",
-  "permissions": ["ui.statusbar", "commands.register"]
-}
-```
-
-`main.js`:
-
-```js
-module.exports = class HelloPlugin {
+module.exports = class Example {
   onload(api) {
-    api.ui.notice("Hello plugin loaded");
     api.commands.register({
-      id: "hello-wave",
-      name: "Wave",
-      callback: function () { api.ui.notice("👋"); }
+      id: "example-task",
+      name: "Make selected text a task",
+      callback() {
+        const selection = api.editor.getSelection().trim();
+        if (selection) api.editor.replaceSelection("- [ ] " + selection);
+      }
     });
   }
   onunload() {}
 };
 ```
 
-Manual install: copy `main.js` + `manifest.json` (+ `styles.css`) into  
-`<Workspace>/.fmd/plugins/com.example.hello/`, then **Reload Plugins** (or restart FMD) and enable.
-
----
-
-## TypeScript workflow
-
-You are already in the GitHub template. App repo: https://github.com/fred1357944/FMD
-
-```bash
-# After creating a repo from the GitHub template:
-npm i
-npm run dev    # watch → main.js
-# Copy main.js + manifest.json into ~/.config/fmd/plugins/<id>/ or <Workspace>/.fmd/plugins/<id>/
-# Reload plugins in FMD → Preferences → Plugins
-```
-
----
-
-## Do / Don't (short)
-
-**Do:** declare only needed permissions; clean up in `onunload`; keep `main.js` self-contained (bundle deps).
-
-**Don't:** expect Node/Electron APIs; fetch the network (not in v0); write outside the workspace; rename plugin `id` after publishing.
+For this example, declare `editor.read`, `editor.write`, and `commands.register`. Use a disposable workspace and enable both **Allow community plugins** and the individual plugin switch.

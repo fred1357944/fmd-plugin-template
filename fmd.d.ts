@@ -52,7 +52,6 @@ export interface CommandDescriptor {
   /** Stable id — do not rename after release */
   id: string;
   name: string;
-  shortcut?: string;
   callback: () => void;
 }
 
@@ -75,6 +74,7 @@ export interface FmdApi {
   ui: {
     /** Requires `ui.statusbar` */
     setStatusBarItem(item: StatusBarItem): void;
+    /** Writes a short message to FMD's status area; not a popup toast. */
     notice(message: string): void;
   };
   commands: {
@@ -86,14 +86,16 @@ export interface FmdApi {
     set(key: string, value: unknown): void;
   };
   frontmatter: {
-    get(path?: string): Record<string, unknown>;
+    /** Reads the active note only. */
+    get(): Record<string, unknown>;
     set(key: string, value: unknown): void;
     update(patch: Record<string, unknown>): void;
   };
   vault: {
     read(path: string): string;
-    write(path: string, text: string): void;
-    list(folder: string): string[];
+    write(path: string, text: string): boolean;
+    /** Lists every Markdown file in the current workspace as a relative path. */
+    list(): string[];
   };
 }
 

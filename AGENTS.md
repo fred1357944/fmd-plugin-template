@@ -4,8 +4,8 @@
 
 - Target: FMD Plugin (TypeScript → bundled JavaScript for Qt QJSEngine).
 - Entry point: `src/main.ts` compiled to `main.js` and loaded by FMD `PluginHost`.
-- Required release artifacts: `main.js`, `manifest.json`, and optional `styles.css`.
-- Host API types: `fmd.d.ts` / `fmd.ts`. Docs: `docs/PLUGIN_API.md` (snapshot). Live spec: https://github.com/fred1357944/FMD
+- Required release artifacts: `main.js` and `manifest.json`.
+- Host API types: `fmd.d.ts` / `fmd.ts`. Docs: `docs/PLUGIN_API.md` in the FMD app repo, or the snapshot in the GitHub template.
 
 ## Environment & tooling
 
@@ -47,23 +47,22 @@ npm run build
   fmd.ts / fmd.d.ts   # Host API types + Plugin base
   manifest.json
   versions.json
-  styles.css          # optional
   ```
 - **Do not commit** `node_modules/` or generated `main.js` (see `.gitignore`).
 - Keep the plugin small. Prefer browser-compatible packages (no Node APIs — QJSEngine is not Node).
-- Release artifacts at the top level of the plugin folder: `main.js`, `manifest.json`, `styles.css`.
+- Release artifacts at the top level of the plugin folder: `main.js`, `manifest.json`.
 
 ## Manifest rules (`manifest.json`)
 
 - Must include: `id`, `name`, `version` (semver), `minAppVersion`, `description`, `permissions` (array).
 - Optional: `author`, `authorUrl`, `fundingUrl`, `main` (default `main.js`).
 - Never change `id` after release.
-- Keep `minAppVersion` accurate when using newer APIs.
+- Keep `minAppVersion` accurate when using newer APIs; the current host displays but does not enforce it.
 - `permissions` gate host API calls — request the minimum set.
 
 ## Testing / manual install
 
-Copy `main.js`, `manifest.json`, `styles.css` (if any) to:
+Copy `main.js` and `manifest.json` to:
 
 ```text
 <Workspace>/.fmd/plugins/<plugin-id>/
@@ -75,7 +74,7 @@ or
 ~/.config/fmd/plugins/<plugin-id>/
 ```
 
-Reload FMD plugins and enable in **Preferences → Plugins**.
+Use a disposable test workspace. Turn on **Allow community plugins**, reload, then enable this plugin in **Preferences → Plugins**.
 
 ## Commands & settings
 
@@ -87,7 +86,7 @@ Reload FMD plugins and enable in **Preferences → Plugins**.
 
 - Bump `version` in `manifest.json` and map in `versions.json`: plugin version → min FMD version.
 - GitHub release tag must match `manifest.json` version exactly (no leading `v`).
-- Attach `manifest.json`, `main.js`, `styles.css` as assets.
+- Attach `manifest.json` and `main.js` as assets.
 
 ## Security, privacy, and compliance
 
@@ -113,7 +112,7 @@ Reload FMD plugins and enable in **Preferences → Plugins**.
 - TypeScript `"strict": true` preferred.
 - Keep `main.ts` minimal; delegate feature logic.
 - Bundle everything into `main.js` (CommonJS for QJSEngine host wrapper).
-- Prefer `async/await`; handle errors gracefully.
+- Keep `onload` synchronous; FMD does not await its result. Handle errors gracefully.
 - **Do not** use Node/Electron APIs.
 
 ## Agent do/don't

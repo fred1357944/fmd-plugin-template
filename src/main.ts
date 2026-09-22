@@ -2,28 +2,42 @@ import { Plugin, type FmdApi } from "../fmd";
 import { DEFAULT_SETTINGS, type SamplePluginSettings } from "./settings";
 
 /**
- * Sample FMD plugin — mirrors Obsidian sample-plugin teaching style.
+ * Small, useful plugin: turn selected lines into Markdown tasks.
  * Bundled by esbuild to root `main.js` (CommonJS).
  */
 class SamplePlugin extends Plugin {
   settings: SamplePluginSettings = { ...DEFAULT_SETTINGS };
 
-  async onload(api?: FmdApi) {
+  onload(api?: FmdApi) {
     if (api) this.api = api;
     this.loadSettings();
 
     this.addCommand({
-      id: "sample-hello",
-      name: "Say hello",
+      id: "sample-task-selection",
+      name: "Turn selection into tasks",
       callback: () => {
-        this.api.ui.notice("Hello from the FMD sample plugin!");
+        const selection = this.api.editor.getSelection();
+        if (!selection.trim()) {
+          this.api.ui.notice("先選取要變成待辦的文字");
+          return;
+        }
+        const tasks = selection.split(/\r?\n/)
+          .map(line => line.trim())
+          .filter(Boolean)
+          .map(line => `- [ ] ${line}`);
+        this.api.editor.replaceSelection(tasks.join("\n"));
+        this.api.ui.notice(`已建立 ${tasks.length} 個待辦`);
       },
     });
 
     this.addCommand({
-      id: "sample-wordcount",
-      name: "Refresh status word count",
-      callback: () => this.updateStatus(),
+      id: "sample-toggle-task-count",
+      name: "Toggle task count in status bar",
+      callback: () => {
+        this.settings.enabled = !this.settings.enabled;
+        this.api.settings.set("enabled", this.settings.enabled);
+        this.updateStatus();
+      },
     });
 
     this.api.workspace.on("file-open", () => this.updateStatus());
@@ -47,20 +61,17 @@ class SamplePlugin extends Plugin {
     };
   }
 
-  private saveSettings() {
-    this.api.settings.set("enabled", this.settings.enabled);
-    this.api.settings.set("statusPrefix", this.settings.statusPrefix);
-  }
-
   private updateStatus() {
-    if (!this.settings.enabled) return;
+    if (!this.settings.enabled) {
+      this.api.ui.setStatusBarItem({ id: "sample-plugin-status", text: "" });
+      return;
+    }
     const text = this.api.editor.getValue() || "";
-    const words = text.trim() ? text.trim().split(/\s+/).filter(Boolean).length : 0;
+    const tasks = (text.match(/^\s*[-*]\s+\[ \]/gm) || []).length;
     this.api.ui.setStatusBarItem({
       id: "sample-plugin-status",
-      text: `${this.settings.statusPrefix}: ${words} words`,
+      text: `${this.settings.statusPrefix}: ${tasks}`,
     });
-    this.saveSettings();
   }
 }
 

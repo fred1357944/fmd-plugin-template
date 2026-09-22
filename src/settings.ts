@@ -5,5 +5,5 @@ export interface SamplePluginSettings {
 
 export const DEFAULT_SETTINGS: SamplePluginSettings = {
   enabled: true,
-  statusPrefix: "Sample",
+  statusPrefix: "待辦",
 };

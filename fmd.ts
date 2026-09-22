@@ -47,7 +47,6 @@ export interface StatusBarItem {
 export interface CommandDescriptor {
   id: string;
   name: string;
-  shortcut?: string;
   callback: () => void;
 }
 
@@ -76,14 +75,14 @@ export interface FmdApi {
     set(key: string, value: unknown): void;
   };
   frontmatter: {
-    get(path?: string): Record<string, unknown>;
+    get(): Record<string, unknown>;
     set(key: string, value: unknown): void;
     update(patch: Record<string, unknown>): void;
   };
   vault: {
     read(path: string): string;
-    write(path: string, text: string): void;
-    list(folder: string): string[];
+    write(path: string, text: string): boolean;
+    list(): string[];
   };
 }
 
@@ -95,7 +94,8 @@ export abstract class Plugin {
     if (api) this.api = api;
   }
 
-  abstract onload(api?: FmdApi): void | Promise<void>;
+  /** FMD calls onload synchronously; do not rely on an awaited Promise. */
+  abstract onload(api?: FmdApi): void;
 
   onunload(): void {}
 
