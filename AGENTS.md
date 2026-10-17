@@ -173,3 +173,10 @@ this.api.workspace.on("file-open", (payload) => {
 - Obsidian sample plugin (DX inspiration): https://github.com/obsidianmd/obsidian-sample-plugin
 - API: `docs/PLUGIN_API.md`
 - Platform MVP: `docs/PLUGIN_PLATFORM_MVP.md`
+
+## 回傳閉環（2026-10-17，Fred 規則）
+凡把工作交給別人（本機 grok/claude CLI、雲端代理、其他 agent、例程），一定要閉環：
+1. 派工 prompt 最後一項：完成或卡住都寫 `<交件資料夾>/grok_report.md`（雲端用 PR 說明）：每項做了什麼、diff 摘要、build/測試結果、備份路徑、未做/不確定；最後一行 `STATUS: DONE` 或 `STATUS: BLOCKED`。
+2. 派工者檢查：本機 CLI 用 15 分鐘暫時例程（沒回報不發訊息）；雲端代理靠內建叫醒；agent 間必須 SendToAgent 回覆。回報出現後核對實際 diff/產出（不只看回報），報 Fred（PR 主動問要不要合、確認已到 Mac），刪例程。
+3. 截止：派工時寫截止；過期沒回報 → 通知 Fred 一次並收掉例程。
+完整：/workspace/ops/workflows/ 與 Mac ~/Documents/營運SOP/handoff-closed-loop_v1.0.0.md
